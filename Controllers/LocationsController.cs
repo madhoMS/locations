@@ -1,8 +1,12 @@
 ﻿using LocationAvailabilityAPI.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Newtonsoft.Json.Linq;
+using SerpApi;
+using System.Collections;
 using System.Data;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -119,6 +123,49 @@ namespace LocationAvailabilityAPI.Controllers
             }            
         }
 
+        [HttpGet("Search")]
+        public async Task<Response> Search(string searchParam)
+        {         
+
+            String apiKey = "1ec8b4dbf99542541f444afad5455db5dd1673fe75a14376eb2dc8829d425943";
+            Hashtable ht = new Hashtable();
+            ht.Add("engine", "bing");
+            ht.Add("q", searchParam);
+
+            try
+            {
+                GoogleSearch search = new GoogleSearch(ht, apiKey);
+                JObject data = search.GetJson();
+                JArray results = (JArray)data["organic_results"];
+
+                List<Models.BingSearch> searchResults = new List<Models.BingSearch>();
+
+
+                foreach (JObject item in results)
+                {
+                    Models.BingSearch searchResult = item.ToObject<Models.BingSearch>();
+                    searchResults.Add(searchResult);
+                }
+
+                return new Response
+                {
+                    IsSuccess = true,
+                    Message = "Search fetched",
+                    StatusCode = (int)HttpStatusCode.OK,
+                    data = searchResults
+                };
+            }
+            catch (SerpApiSearchException ex)
+            {
+                return new Response
+                {
+                    IsSuccess = false,
+                    Message = "Something went wrong",
+                    StatusCode = (int)HttpStatusCode.BadRequest,
+                    data = new object()
+                };
+            }
+        }
 
         private DataTable ReadCsvFromFileStream(Stream stream)
         {
@@ -169,5 +216,8 @@ namespace LocationAvailabilityAPI.Controllers
 
             return list.ToArray();
         }
+
+
+        
     }
 }
